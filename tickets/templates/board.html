@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">Đang gọi số</h3>
+<div class="row g-3 mb-5" id="counters"></div>
+
+<h3 class="mb-3">Hàng đợi theo dịch vụ</h3>
+<div class="card" id="services"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function load() {
+  const d = await (await fetch("/api/board/")).json();
+  document.getElementById("counters").innerHTML = d.counters.map(c => `
+    <div class="col-6 col-md-3">
+      <div class="call ${c.current ? 'is-live' : ''} ${c.open ? '' : 'is-closed'}">
+        <div class="call-name">${c.name}${c.open ? '' : ' (đóng)'}</div>
+        <div class="call-num">${c.current || '—'}</div>
+      </div>
+    </div>`).join("");
+  document.getElementById("services").innerHTML = d.services.map(s => `
+    <div class="svc-row">
+      <div>
+        <div class="svc-name">${s.name}</div>
+        <div class="text-muted small">Tiếp theo: ${s.next.join(", ") || "chưa có"}</div>
+      </div>
+      <div class="svc-stat"><b>${s.waiting}</b>người chờ</div>
+      <div class="svc-stat"><b>~${s.est}</b>phút</div>
+    </div>`).join("");
+}
+load(); setInterval(load, 3000);
+</script>
+{% endblock %}

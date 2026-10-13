@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-md-7">
+    <div class="card"><div class="card-body">
+      <h4>Lấy số thứ tự</h4>
+      <form method="post">{% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Họ tên (không bắt buộc)</label>
+          <input name="customer_name" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Mô tả ngắn nhu cầu của bạn</label>
+          <textarea id="note" name="note" class="form-control" rows="2"
+            placeholder="VD: em muốn đóng học phí kỳ này"></textarea>
+          <button type="button" id="btnAI" class="btn btn-outline-secondary btn-sm mt-2">🤖 AI gợi ý dịch vụ</button>
+          <div id="aiResult" class="small text-muted mt-1"></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Dịch vụ</label>
+          <select name="service" id="service" class="form-select" required>
+            {% for s in services %}
+              <option value="{{ s.id }}">{{ s.name }} — {{ s.waiting }} người chờ, ~{{ s.est }} phút</option>
+            {% empty %}
+              <option value="">(Chưa có dịch vụ — thêm trong trang Quản trị)</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button class="btn btn-primary w-100">Lấy số</button>
+      </form>
+    </div></div>
+  </div>
+  <div class="col-md-5">
+    <div class="card"><div class="card-body">
+      <h5>Xem hàng đợi trực tiếp</h5>
+      <p class="text-muted">Xem số đang được gọi tại các quầy.</p>
+      <a class="btn btn-outline-primary" href="{% url 'board' %}">Mở bảng hàng đợi</a>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById("btnAI").onclick = async () => {
+  const q = document.getElementById("note").value;
+  const out = document.getElementById("aiResult");
+  out.textContent = "Đang phân tích...";
+  const r = await fetch("/api/suggest/?q=" + encodeURIComponent(q));
+  const d = await r.json();
+  if (!d.service_id) { out.textContent = "Chưa có dịch vụ nào."; return; }
+  document.getElementById("service").value = d.service_id;
+  out.textContent = `Gợi ý: ${d.service_name}` + (d.counter ? ` — quầy phù hợp: ${d.counter}` : "") +
+    ` (${d.reason})`;
+};
+</script>
+{% endblock %}

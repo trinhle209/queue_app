@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block content %}
+{% if not counter %}
+  <div class="alert alert-warning">Tài khoản này chưa được gán quầy. Hãy nhờ quản lý gán trong trang Quản trị.</div>
+{% else %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h4 class="mb-0">{{ counter.name }}</h4>
+        {% if counter.is_open %}<span class="badge bg-success">Đang mở</span>
+        {% else %}<span class="badge bg-secondary">Đóng</span>{% endif %}
+      </div>
+
+      {% if current %}
+        <div class="text-center my-4 p-3 rounded-3" style="background:#FFB400">
+          <div class="small fw-semibold">ĐANG PHỤC VỤ</div>
+          <div class="display-1">{{ current.code }}</div>
+          <div class="fw-semibold">{{ current.service.name }}</div>
+          <div class="small">{{ current.customer_name }} {{ current.note }}</div>
+        </div>
+
+        <div class="d-flex gap-2 mb-4">
+          <form method="post" action="{% url 'staff_action' 'done' %}" class="flex-fill">{% csrf_token %}
+            <button class="btn btn-primary w-100">✔ Hoàn tất</button></form>
+          <form method="post" action="{% url 'staff_action' 'skip' %}" class="flex-fill">{% csrf_token %}
+            <button class="btn btn-outline-danger w-100">⏭ Vắng mặt</button></form>
+        </div>
+
+        <div class="small fw-semibold text-muted mb-1">Chuyển sang quầy khác (cùng dịch vụ)</div>
+        {% if other_counters %}
+        <form method="post" action="{% url 'staff_action' 'transfer' %}" class="input-group mb-3">{% csrf_token %}
+          <select name="counter_id" class="form-select">
+            {% for c in other_counters %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-outline-primary">Chuyển quầy</button>
+        </form>
+        {% else %}
+          <div class="text-muted small mb-3">Chưa có quầy nào khác đang mở cho dịch vụ này.</div>
+        {% endif %}
+
+        <div class="small fw-semibold text-muted mb-1">Khách chọn nhầm dịch vụ</div>
+        <form method="post" action="{% url 'staff_action' 'transfer' %}" class="input-group mb-3">{% csrf_token %}
+          <select name="service_id" class="form-select">
+            {% for s in services %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-outline-primary">Chuyển dịch vụ</button>
+        </form>
+      {% else %}
+        <form method="post" action="{% url 'staff_action' 'next' %}" class="my-4">{% csrf_token %}
+          <button class="btn btn-primary btn-lg w-100 py-3" {% if not counter.is_open %}disabled{% endif %}>
+            📣 Gọi số tiếp theo</button>
+        </form>
+      {% endif %}
+
+      <form method="post" action="{% url 'staff_action' 'toggle' %}">{% csrf_token %}
+        <button class="btn btn-outline-secondary btn-sm">
+          {% if counter.is_open %}Đóng quầy{% else %}Mở quầy{% endif %}</button>
+      </form>
+    </div></div>
+
+    {% if skipped %}
+    <div class="card mt-3"><div class="card-body">
+      <h6 class="mb-2">Khách vắng mặt hôm nay</h6>
+      {% for t in skipped %}
+        <form method="post" action="{% url 'staff_action' 'recall' %}" class="d-flex justify-content-between align-items-center py-1">{% csrf_token %}
+          <span><b>{{ t.code }}</b> <span class="text-muted small">{{ t.service.name }}</span></span>
+          <input type="hidden" name="ticket_id" value="{{ t.id }}">
+          <button class="btn btn-outline-primary btn-sm">Gọi lại</button>
+        </form>
+      {% endfor %}
+    </div></div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card"><div class="card-body">
+      <h5>Khách đang chờ</h5>
+      <div id="queue"></div>
+    </div></div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if counter %}
+<script>
+async function loadQueue() {
+  document.getElementById("queue").innerHTML = await (await fetch("{% url 'staff_queue' %}")).text();
+}
+loadQueue(); setInterval(loadQueue, 3000);
+</script>
+{% endif %}
+{% endblock %}

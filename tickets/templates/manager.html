@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <h3 class="mb-0">Báo cáo {{ d.days }} ngày gần nhất</h3>
+  <div class="btn-group">
+    <a class="btn btn-sm {% if d.days == 7 %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?days=7">7 ngày</a>
+    <a class="btn btn-sm {% if d.days == 30 %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?days=30">30 ngày</a>
+    <a class="btn btn-sm {% if d.days == 90 %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?days=90">90 ngày</a>
+  </div>
+</div>
+
+<div class="row g-3 my-2">
+  <div class="col-6 col-md-3"><div class="card card-body text-center"><div class="fs-2 fw-bold">{{ d.total }}</div>Tổng lượt</div></div>
+  <div class="col-6 col-md-3"><div class="card card-body text-center"><div class="fs-2 fw-bold">{{ d.done }}</div>Đã phục vụ</div></div>
+  <div class="col-6 col-md-3"><div class="card card-body text-center"><div class="fs-2 fw-bold">{{ d.skipped }}/{{ d.cancelled }}</div>Vắng/Huỷ</div></div>
+  <div class="col-6 col-md-3"><div class="card card-body text-center"><div class="fs-2 fw-bold">{{ d.avg_rating }}</div>Đánh giá TB (/5)</div></div>
+</div>
+
+<div class="card card-body my-3">
+  <button id="btnAI" class="btn btn-primary align-self-start">🤖 AI tóm tắt nguyên nhân nghẽn</button>
+  <div id="aiText" class="mt-3" style="white-space:pre-wrap"></div>
+</div>
+
+<div class="card card-body mb-3">
+  <h5>Thời gian chờ trung bình theo giờ (phút)</h5>
+  <div style="position:relative;height:260px"><canvas id="hourChart"></canvas></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6"><div class="card card-body">
+    <h5>Theo dịch vụ</h5>
+    <table class="table table-sm"><tr><th>Dịch vụ</th><th>Lượt</th><th>Chờ TB</th><th>Xử lý TB</th></tr>
+    {% for s in d.by_service %}<tr><td>{{ s.service }}</td><td>{{ s.tickets }}</td><td>{{ s.avg_wait }}</td><td>{{ s.avg_serve }}</td></tr>
+    {% empty %}<tr><td colspan="4" class="text-muted">Chưa có dữ liệu.</td></tr>{% endfor %}
+    </table>
+  </div></div>
+  <div class="col-lg-6"><div class="card card-body">
+    <h5>Theo quầy (đã phục vụ)</h5>
+    <table class="table table-sm"><tr><th>Quầy</th><th>Số khách</th><th>Xử lý TB (phút)</th></tr>
+    {% for c in d.by_counter %}<tr><td>{{ c.counter }}</td><td>{{ c.served }}</td><td>{{ c.avg_serve }}</td></tr>
+    {% empty %}<tr><td colspan="3" class="text-muted">Chưa có dữ liệu.</td></tr>{% endfor %}
+    </table>
+  </div></div>
+  <div class="col-lg-6"><div class="card card-body">
+    <h5>Khảo sát sau phục vụ</h5>
+    <table class="table table-sm"><tr><th>Số sao</th><th>Số lượt</th></tr>
+    {% for r in d.rating_dist %}<tr><td>{{ r.star }} ⭐</td><td>{{ r.count }}</td></tr>{% endfor %}
+    </table>
+    <table class="table table-sm"><tr><th>Dịch vụ</th><th>Điểm TB</th><th>Số đánh giá</th></tr>
+    {% for r in d.rating_by_service %}<tr><td>{{ r.service }}</td><td>{{ r.avg }}</td><td>{{ r.count }}</td></tr>
+    {% empty %}<tr><td colspan="3" class="text-muted">Chưa có đánh giá.</td></tr>{% endfor %}
+    </table>
+  </div></div>
+  <div class="col-lg-6"><div class="card card-body">
+    <h5>Góp ý gần đây</h5>
+    {% for f in d.recent_feedback %}
+      <div class="py-2 border-bottom"><b>{{ f.code }}</b> · {{ f.rating }}/5 ⭐<br><span class="text-muted">{{ f.text }}</span></div>
+    {% empty %}<div class="text-muted">Chưa có góp ý.</div>{% endfor %}
+  </div></div>
+</div>
+
+{{ d.by_hour|json_script:"hourData" }}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const rows = JSON.parse(document.getElementById("hourData").textContent);
+if (window.Chart && rows.length) {
+  new Chart(document.getElementById("hourChart"), {
+    type: "bar",
+    data: {
+      labels: rows.map(r => r.hour + "h"),
+      datasets: [{ label: "Chờ TB (phút)", data: rows.map(r => r.avg_wait), backgroundColor: "#0E6B66" }]
+    },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+}
+document.getElementById("btnAI").onclick = async () => {
+  const el = document.getElementById("aiText");
+  el.textContent = "Đang phân tích...";
+  el.textContent = (await (await fetch("/api/manager/ai/?days={{ d.days }}")).json()).text;
+};
+</script>
+{% endblock %}
